@@ -100,9 +100,9 @@ public class CompanyAdapter extends BaseAdapter {
                     view.setBackgroundColor(0xFF00FF00);
                     nearbyIndicator.setVisibility(View.VISIBLE); // ПРИКАЖИ ГО ИНДИКАТОРОТ
 
-                    if (position == 0) {
-                        Toast.makeText(context, "📍 Блиску сте до: " + company.getName(), Toast.LENGTH_SHORT).show();
-                    }
+          //          if (position == 0) {
+                    //    Toast.makeText(context, "📍 Блиску сте до: " + company.getName(), Toast.LENGTH_SHORT).show();
+                  //  }
                 } else {
                     view.setBackgroundColor(0x00000000); // Транспарентно
                     nearbyIndicator.setVisibility(View.GONE); // СОКРИЈ ГО ИНДИКАТОРОТ

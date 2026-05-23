@@ -98,7 +98,7 @@ public class AddCompanyActivity extends AppCompatActivity {
         final String finalCategory = category;
 
         // URL do PHP fajl
-        String url = "http://10.0.2.2:8888/bussiness_directory/add_company.php";
+        String url = "http://192.168.1.101:8888/bussiness_directory/add_company.php";
 
         // Volley
         RequestQueue queue = Volley.newRequestQueue(this);

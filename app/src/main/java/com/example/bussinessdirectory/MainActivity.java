@@ -31,8 +31,8 @@ public class MainActivity extends AppCompatActivity {
     ViewPager2 viewPager;
     EditText searchField;
 
-    public static LocationHelper currentLocationHelper; // ДОДАДЕНО
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100; // ДОДАДЕНО
+    public static LocationHelper currentLocationHelper;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,10 +40,8 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
 
         TabLayout tabLayout = findViewById(R.id.tabLayout);
         viewPager = findViewById(R.id.viewPager);
@@ -94,26 +92,42 @@ public class MainActivity extends AppCompatActivity {
             initLocationHelper();
         }
     }
+    private boolean firstLocationReceived = false; // додади како поле во класата
 
     private void initLocationHelper() {
         currentLocationHelper = new LocationHelper(this, new LocationHelper.LocationListener() {
             @Override
             public void onLocationReceived(double latitude, double longitude) {
-                // Локацијата е примена
                 runOnUiThread(() -> {
-                    Toast.makeText(MainActivity.this,
-                            "📍 Локација:\nLat: " + latitude + "\nLon: " + longitude,
-                            Toast.LENGTH_LONG).show();
+                    if (!firstLocationReceived) {
+                        firstLocationReceived = true;
+                        Toast.makeText(MainActivity.this, "📍 Локација: " + latitude + ", " + longitude, Toast.LENGTH_SHORT).show();
+                    }
+                    updateCurrentFragmentLocation(latitude, longitude);
                 });
-                refreshCurrentFragment();
             }
 
             @Override
             public void onLocationError(String error) {
-                Toast.makeText(MainActivity.this, "Location error: " + error, Toast.LENGTH_SHORT).show();
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Location error: " + error, Toast.LENGTH_LONG).show();
+                });
             }
         });
-        currentLocationHelper.getCurrentLocation();
+
+        // Започни со постојано следење
+        currentLocationHelper.startLocationTracking();
+    }
+
+    // Ажурирај ја локацијата само во тековно активниот фрагмент
+    private void updateCurrentFragmentLocation(double lat, double lon) {
+        if (viewPager == null) return;
+        Fragment currentFragment = getSupportFragmentManager()
+                .findFragmentByTag("f" + viewPager.getCurrentItem());
+
+        if (currentFragment instanceof BaseCategoryFragment) {
+            ((BaseCategoryFragment) currentFragment).updateLocation(lat, lon);
+        }
     }
 
     @Override
@@ -134,14 +148,8 @@ public class MainActivity extends AppCompatActivity {
                     .findFragmentByTag("f" + viewPager.getCurrentItem());
 
             if (currentFragment != null && currentFragment.isAdded()) {
-                if (currentFragment instanceof ServisiFragment) {
-                    ((ServisiFragment) currentFragment).filter(query);
-                } else if (currentFragment instanceof ZabavaFragment) {
-                    ((ZabavaFragment) currentFragment).filter(query);
-                } else if (currentFragment instanceof IndustrijaFragment) {
-                    ((IndustrijaFragment) currentFragment).filter(query);
-                } else if (currentFragment instanceof EdukacijaFragment) {
-                    ((EdukacijaFragment) currentFragment).filter(query);
+                if (currentFragment instanceof BaseCategoryFragment) {
+                    ((BaseCategoryFragment) currentFragment).filter(query);
                 }
             }
         } catch (Exception e) {
@@ -157,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if(item.getItemId() == R.id.addCompany){
+        if (item.getItemId() == R.id.addCompany) {
             Intent intent = new Intent(MainActivity.this, AddCompanyActivity.class);
             startActivityForResult(intent, 1);
         }
@@ -168,38 +176,45 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 1 && resultCode == RESULT_OK) {
-            refreshFragments();
+            refreshAllFragments();
         }
     }
 
-    private void refreshFragments() {
+    private void refreshAllFragments() {
+        // Освежи ги сите фрагменти кога се додава нова фирма
         if (viewPager != null && adapter != null) {
-            int currentItem = viewPager.getCurrentItem();
-            adapter.notifyDataSetChanged();
-            viewPager.setAdapter(adapter);
-            viewPager.setCurrentItem(currentItem);
-        }
-    }
-
-    // ДОДАДЕНО: Метод за освежување на тековниот фрагмент
-    private void refreshCurrentFragment() {
-        try {
-            Fragment currentFragment = getSupportFragmentManager()
-                    .findFragmentByTag("f" + viewPager.getCurrentItem());
-
-            if (currentFragment != null && currentFragment.isAdded()) {
-                if (currentFragment instanceof ServisiFragment) {
-                    ((ServisiFragment) currentFragment).refreshDisplay();
-                } else if (currentFragment instanceof ZabavaFragment) {
-                    ((ZabavaFragment) currentFragment).refreshDisplay();
-                } else if (currentFragment instanceof IndustrijaFragment) {
-                    ((IndustrijaFragment) currentFragment).refreshDisplay();
-                } else if (currentFragment instanceof EdukacijaFragment) {
-                    ((EdukacijaFragment) currentFragment).refreshDisplay();
+            for (int i = 0; i < adapter.getItemCount(); i++) {
+                Fragment f = getSupportFragmentManager().findFragmentByTag("f" + i);
+                if (f instanceof BaseCategoryFragment) {
+                    ((BaseCategoryFragment) f).refreshDisplay();
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        }
+    }
+
+    // Освежи го само тековниот фрагмент (кога локацијата се менува)
+    private void refreshCurrentFragment() {
+        if (viewPager == null) return;
+        Fragment currentFragment = getSupportFragmentManager()
+                .findFragmentByTag("f" + viewPager.getCurrentItem());
+        if (currentFragment instanceof BaseCategoryFragment) {
+            ((BaseCategoryFragment) currentFragment).refreshDisplay();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (currentLocationHelper != null && !currentLocationHelper.isTracking()) {
+            currentLocationHelper.startLocationTracking();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (currentLocationHelper != null) {
+            currentLocationHelper.stopLocationTracking();
         }
     }
 }
