@@ -5,76 +5,116 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#F8F9FA">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:elevation="4dp">
+        android:background="#FFFFFF"
+        android:elevation="0dp"
+        app:elevation="0dp">
 
+        <!-- Toolbar со custom layout -->
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="@color/colorPrimary"
-            android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-            app:title="Business Directory"
-            app:titleTextColor="@android:color/white"
-            app:titleTextAppearance="@style/ToolbarTitle"
-            app:logo="@mipmap/ic_launcher"
-            app:logoDescription="App logo" />
+            android:layout_height="64dp"
+            android:background="#FFFFFF"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/appLogo"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@mipmap/ic_launcher"
+                    android:contentDescription="App logo" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="10dp">
+
+                    <TextView
+                        android:text="Business Directory"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:textColor="#1A1A1A"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.appcompat.widget.Toolbar>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:background="#E0E0E0" />
+
+        <!-- Tab Layout -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/colorPrimary"
-            app:tabIndicatorColor="@android:color/white"
+            android:layout_height="48dp"
+            android:background="#FFFFFF"
+            app:tabIndicatorColor="#2196F3"
             app:tabIndicatorHeight="3dp"
+            app:tabIndicatorGravity="bottom"
             app:tabMode="fixed"
             app:tabGravity="fill"
-            app:tabTextColor="#CCFFFFFF"
-            app:tabSelectedTextColor="@android:color/white"
-            app:tabTextAppearance="@android:style/TextAppearance.Widget.TabWidget" />
+            app:tabMaxWidth="0dp"
+            app:tabTextColor="#757575"
+            app:tabSelectedTextColor="#2196F3"
+            app:tabRippleColor="#1A2196F3"
+            app:tabTextAppearance="@android:style/TextAppearance.Widget.TabWidget"
+            app:tabPaddingStart="0dp"
+            app:tabPaddingEnd="0dp" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <LinearLayout
+    <!-- ViewPager (листа на фирми) -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:background="#F5F5F5">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-        <androidx.viewpager2.widget.ViewPager2
-            android:id="@+id/viewPager"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+    <!-- Search bar - НАЈДОЛЕ -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="12dp"
+        android:layout_gravity="bottom"
+        app:cardCornerRadius="30dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#FFFFFF">
 
-        <!-- Search bar на дното -->
-        <com.google.android.material.card.MaterialCardView
+        <EditText
+            android:id="@+id/searchField"
+            android:hint="🔍 Пребарај компанија..."
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="12dp"
-            app:cardCornerRadius="30dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="@android:color/white">
+            android:padding="14dp"
+            android:background="@android:color/transparent"
+            android:textSize="14sp"
+            android:textColor="#000000"
+            android:textColorHint="#999999"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1" />
 
-            <EditText
-                android:id="@+id/searchField"
-                android:hint="🔍 Пребарај компанија..."
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="14dp"
-                android:background="@android:color/holo_blue_bright"
-                android:textSize="14sp"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:maxLines="1" />
-
-        </com.google.android.material.card.MaterialCardView>
-
-    </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
