@@ -34,6 +34,9 @@ public class MainActivity extends AppCompatActivity {
     public static LocationHelper currentLocationHelper;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
 
+    // Променлива за да прикаже само еднаш Toast за локација
+    private boolean firstLocationShown = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,12 +66,10 @@ public class MainActivity extends AppCompatActivity {
         searchField.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 searchCompanies(s.toString());
             }
-
             @Override
             public void afterTextChanged(Editable s) {}
         });
@@ -92,41 +93,47 @@ public class MainActivity extends AppCompatActivity {
             initLocationHelper();
         }
     }
-    private boolean firstLocationReceived = false; // додади како поле во класата
 
     private void initLocationHelper() {
         currentLocationHelper = new LocationHelper(this, new LocationHelper.LocationListener() {
             @Override
             public void onLocationReceived(double latitude, double longitude) {
                 runOnUiThread(() -> {
-                    if (!firstLocationReceived) {
-                        firstLocationReceived = true;
-                        Toast.makeText(MainActivity.this, "📍 Локација: " + latitude + ", " + longitude, Toast.LENGTH_SHORT).show();
+                    if (!firstLocationShown) {
+                        firstLocationShown = true;
+                        Toast.makeText(MainActivity.this,
+                                "📍 Твојата локација: " + String.format("%.4f", latitude) + ", " + String.format("%.4f", longitude),
+                                Toast.LENGTH_LONG).show();
                     }
-                    updateCurrentFragmentLocation(latitude, longitude);
+                    // Не треба да освежуваме тука, checkNearbyCompanies ќе повика onNearbyStatusChanged
                 });
             }
 
             @Override
             public void onLocationError(String error) {
                 runOnUiThread(() -> {
-                    Toast.makeText(MainActivity.this, "Location error: " + error, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "❌ Грешка со локација: " + error, Toast.LENGTH_LONG).show();
+                });
+            }
+
+            @Override
+            public void onNearbyStatusChanged() {
+                runOnUiThread(() -> {
+                    // Освежи ги сите фрагменти кога има промена на статусот за близина
+                    refreshAllFragments();
                 });
             }
         });
-
-        // Започни со постојано следење
         currentLocationHelper.startLocationTracking();
     }
 
-    // Ажурирај ја локацијата само во тековно активниот фрагмент
-    private void updateCurrentFragmentLocation(double lat, double lon) {
+    // ✅ ОСВЕЖИ ГО ТЕКОВНИОТ ФРАГМЕНТ
+    public void refreshCurrentFragment() {
         if (viewPager == null) return;
         Fragment currentFragment = getSupportFragmentManager()
                 .findFragmentByTag("f" + viewPager.getCurrentItem());
-
         if (currentFragment instanceof BaseCategoryFragment) {
-            ((BaseCategoryFragment) currentFragment).updateLocation(lat, lon);
+            ((BaseCategoryFragment) currentFragment).refreshDisplay();
         }
     }
 
@@ -137,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 initLocationHelper();
             } else {
-                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "❌ Локацијата е потребна за да се прикажат блиските фирми", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -181,7 +188,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshAllFragments() {
-        // Освежи ги сите фрагменти кога се додава нова фирма
         if (viewPager != null && adapter != null) {
             for (int i = 0; i < adapter.getItemCount(); i++) {
                 Fragment f = getSupportFragmentManager().findFragmentByTag("f" + i);
@@ -192,20 +198,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Освежи го само тековниот фрагмент (кога локацијата се менува)
-    private void refreshCurrentFragment() {
-        if (viewPager == null) return;
-        Fragment currentFragment = getSupportFragmentManager()
-                .findFragmentByTag("f" + viewPager.getCurrentItem());
-        if (currentFragment instanceof BaseCategoryFragment) {
-            ((BaseCategoryFragment) currentFragment).refreshDisplay();
-        }
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
-        if (currentLocationHelper != null && !currentLocationHelper.isTracking()) {
+        if (currentLocationHelper != null) {
             currentLocationHelper.startLocationTracking();
         }
     }
@@ -217,4 +213,7 @@ public class MainActivity extends AppCompatActivity {
             currentLocationHelper.stopLocationTracking();
         }
     }
+
+
+
 }

@@ -7,20 +7,10 @@ import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.Volley;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -32,11 +22,8 @@ public abstract class BaseCategoryFragment extends Fragment {
     protected ArrayList<Company> companies;
     protected ArrayList<Company> originalCompanies;
     protected CompanyAdapter adapter;
-    protected RequestQueue requestQueue;
+    protected DatabaseHelper dbHelper;
     protected String currentFilter = "";
-    protected double currentLat = 0, currentLon = 0;
-    protected boolean hasLocation = false;
-    protected boolean isLoading = false;
 
     protected abstract String getCategoryName();
     protected abstract int getLayoutResource();
@@ -46,16 +33,15 @@ public abstract class BaseCategoryFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(getLayoutResource(), container, false);
 
-        listView = view.findViewById(R.id.listView); // сега сите фрагменти го користат истиот ID
+        listView = view.findViewById(R.id.listView);
         progressBar = view.findViewById(R.id.progressBar);
         emptyView = view.findViewById(R.id.emptyView);
 
         companies = new ArrayList<>();
         originalCompanies = new ArrayList<>();
+        dbHelper = new DatabaseHelper(getContext());
         adapter = new CompanyAdapter(getContext(), companies);
         listView.setAdapter(adapter);
-
-        requestQueue = Volley.newRequestQueue(getContext());
 
         loadCompanies();
 
@@ -63,89 +49,46 @@ public abstract class BaseCategoryFragment extends Fragment {
     }
 
     protected void loadCompanies() {
-        if (isLoading) return;
-        isLoading = true;
-        if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
-
-        String url;
-        if (hasLocation && currentLat != 0 && currentLon != 0) {
-            url = "http://192.168.1.101:8888/bussiness_directory/get_companies.php?category=" + getCategoryName()
-                    + "&lat=" + currentLat + "&lon=" + currentLon + "&radius=0.05";
-        } else {
-            url = "http://192.168.1.101:8888/bussiness_directory/get_companies.php?category=" + getCategoryName();
-        }
-        if (!currentFilter.isEmpty()) {
-            url += "&search=" + currentFilter;
+        if (progressBar != null) {
+            progressBar.setVisibility(View.VISIBLE);
         }
 
-        JsonArrayRequest request = new JsonArrayRequest(Request.Method.GET, url, null,
-                response -> {
-                    companies.clear();
-                    originalCompanies.clear();
-                    for (int i = 0; i < response.length(); i++) {
-                        try {
-                            JSONObject obj = response.getJSONObject(i);
-                            String name = obj.getString("name");
-                            String address = obj.optString("address");
-                            String phone = obj.optString("phone");
-                            String website = obj.optString("website");
-                            String email = obj.optString("email");
-                            double lat = obj.optDouble("latitude", 0);
-                            double lon = obj.optDouble("longitude", 0);
-                            int distance = obj.optInt("distance", -1);
+        companies.clear();
+        originalCompanies.clear();
 
-                            Company company = new Company(name, address, phone, website, lat, lon, getCategoryName());
-                            company.setEmail(email);
-                            company.setDistance(distance);
-                            companies.add(company);
-                            originalCompanies.add(company);
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    adapter.notifyDataSetChanged();
-                    if (emptyView != null) {
-                        emptyView.setVisibility(companies.isEmpty() ? View.VISIBLE : View.GONE);
-                    }
-                    isLoading = false;
-                    if (progressBar != null) progressBar.setVisibility(View.GONE);
-                },
-                error -> {
-                    Toast.makeText(getContext(), "Error loading: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    isLoading = false;
-                    if (progressBar != null) progressBar.setVisibility(View.GONE);
-                    if (emptyView != null) emptyView.setText("Грешка при вчитување");
-                });
-        requestQueue.add(request);
-    }
+        // Земете ги компаниите од локалната база
+        ArrayList<Company> allCompanies = dbHelper.getCompaniesByCategory(getCategoryName());
 
-    public void updateLocation(double lat, double lon) {
-        this.currentLat = lat;
-        this.currentLon = lon;
-        this.hasLocation = true;
-        loadCompanies();
+        companies.addAll(allCompanies);
+        originalCompanies.addAll(allCompanies);
+
+        // Примени филтер ако има
+        if (currentFilter != null && !currentFilter.isEmpty()) {
+            ArrayList<Company> filtered = new ArrayList<>();
+            for (Company c : companies) {
+                if (c.getName().toLowerCase().contains(currentFilter.toLowerCase()) ||
+                        c.getAddress().toLowerCase().contains(currentFilter.toLowerCase())) {
+                    filtered.add(c);
+                }
+            }
+            companies.clear();
+            companies.addAll(filtered);
+        }
+
+        adapter.notifyDataSetChanged();
+
+        if (emptyView != null) {
+            emptyView.setVisibility(companies.isEmpty() ? View.VISIBLE : View.GONE);
+        }
+
+        if (progressBar != null) {
+            progressBar.setVisibility(View.GONE);
+        }
     }
 
     public void filter(String query) {
         this.currentFilter = query;
-        if (query == null || query.isEmpty()) {
-            companies.clear();
-            companies.addAll(originalCompanies);
-            adapter.notifyDataSetChanged();
-            return;
-        }
-        ArrayList<Company> filtered = new ArrayList<>();
-        for (Company c : originalCompanies) {
-            if (c.getName().toLowerCase().contains(query.toLowerCase()) ||
-                    c.getAddress().toLowerCase().contains(query.toLowerCase()) ||
-                    c.getPhone().toLowerCase().contains(query.toLowerCase()) ||
-                    c.getWebsite().toLowerCase().contains(query.toLowerCase())) {
-                filtered.add(c);
-            }
-        }
-        companies.clear();
-        companies.addAll(filtered);
-        adapter.notifyDataSetChanged();
+        loadCompanies();
     }
 
     public void refreshDisplay() {

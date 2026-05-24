@@ -14,22 +14,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
-
-import java.util.HashMap;
-import java.util.Map;
-
 public class AddCompanyActivity extends AppCompatActivity {
 
-    // Promenlivi za polinja
     EditText name, address, latitude, longitude, email, phone, website;
     CheckBox cbServisi, cbZabava, cbIndustrija, cbEdukacija;
     Button saveBtn;
+    DatabaseHelper dbHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,7 +27,8 @@ public class AddCompanyActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_add_company);
 
-        // Povrzuvame promenlivite
+        dbHelper = new DatabaseHelper(this);
+
         name = findViewById(R.id.name);
         address = findViewById(R.id.address);
         latitude = findViewById(R.id.latitude);
@@ -53,7 +44,6 @@ public class AddCompanyActivity extends AppCompatActivity {
 
         saveBtn = findViewById(R.id.saveBtn);
 
-        // Klik na save kopceto
         saveBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -69,77 +59,51 @@ public class AddCompanyActivity extends AppCompatActivity {
     }
 
     private void saveCompany() {
-//proverka dali se vneseni
-                if (name.getText().toString().isEmpty() ||
-                address.getText().toString().isEmpty() ||
-                email.getText().toString().isEmpty() ||
-                phone.getText().toString().isEmpty()) {
+        if (name.getText().toString().trim().isEmpty() ||
+                address.getText().toString().trim().isEmpty() ||
+                phone.getText().toString().trim().isEmpty()) {
 
-            Toast.makeText(this, "Please fill required fields", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Пополнете ги задолжителните полиња", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        StringBuilder categoryBuilder = new StringBuilder();
-        if (cbServisi.isChecked()) categoryBuilder.append("Servisi,");
-        if (cbZabava.isChecked()) categoryBuilder.append("Zabava,");
-        if (cbIndustrija.isChecked()) categoryBuilder.append("Industrija,");
-        if (cbEdukacija.isChecked()) categoryBuilder.append("Edukacija,");
-
-        if (categoryBuilder.length() == 0) {
-            Toast.makeText(this, "Please select at least one category", Toast.LENGTH_SHORT).show();
+        // Категорија
+        String category = "";
+        if (cbServisi.isChecked()) category = "Servisi";
+        else if (cbZabava.isChecked()) category = "Zabava";
+        else if (cbIndustrija.isChecked()) category = "Industrija";
+        else if (cbEdukacija.isChecked()) category = "Edukacija";
+        else {
+            Toast.makeText(this, "Изберете категорија", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        String category = categoryBuilder.toString();
-        if (category.endsWith(",")) {
-            category = category.substring(0, category.length() - 1);
+        double lat = 0, lon = 0;
+        try {
+            lat = latitude.getText().toString().trim().isEmpty() ? 0 : Double.parseDouble(latitude.getText().toString().trim());
+            lon = longitude.getText().toString().trim().isEmpty() ? 0 : Double.parseDouble(longitude.getText().toString().trim());
+        } catch (NumberFormatException e) {
+            // ignore
         }
 
-        final String finalCategory = category;
+        Company company = new Company(
+                name.getText().toString().trim(),
+                address.getText().toString().trim(),
+                phone.getText().toString().trim(),
+                website.getText().toString().trim(),
+                lat, lon, category
+        );
+        company.setEmail(email.getText().toString().trim());
 
-        // URL do PHP fajl
-        String url = "http://192.168.1.101:8888/bussiness_directory/add_company.php";
+        long id = dbHelper.addCompany(company);
 
-        // Volley
-        RequestQueue queue = Volley.newRequestQueue(this);
-
-        StringRequest request = new StringRequest(Request.Method.POST, url,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-                        // Успешно испратено
-                        // После Toast кажува дека е зачувано
-                        Toast.makeText(AddCompanyActivity.this, "Company saved!", Toast.LENGTH_SHORT).show();
-
-// Наместо finish(), направи:
-                        Intent intent = new Intent();
-                        setResult(RESULT_OK, intent);
-                        finish();
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        // Грешка
-                        Toast.makeText(AddCompanyActivity.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }) {
-            @Override
-            protected Map<String, String> getParams() {
-                // Isprakame podatocite preku POST
-                Map<String, String> params = new HashMap<>();
-                params.put("name", name.getText().toString());
-                params.put("address", address.getText().toString());
-                params.put("latitude", latitude.getText().toString().isEmpty() ? "0" : latitude.getText().toString());
-                params.put("longitude", longitude.getText().toString().isEmpty() ? "0" : longitude.getText().toString());
-                params.put("email", email.getText().toString());
-                params.put("phone", phone.getText().toString());
-                params.put("website", website.getText().toString());
-                params.put("category", finalCategory);  // Користи ја final променливата
-                return params;
-            }
-        };
-
-        queue.add(request);
+        if (id != -1) {
+            Toast.makeText(this, "✅ Фирмата е зачувана!", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent();
+            setResult(RESULT_OK, intent);
+            finish();
+        } else {
+            Toast.makeText(this, "❌ Грешка при зачувување", Toast.LENGTH_SHORT).show();
+        }
     }
 }

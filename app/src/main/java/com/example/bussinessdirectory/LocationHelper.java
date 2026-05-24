@@ -1,12 +1,16 @@
 package com.example.bussinessdirectory;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.os.Looper;
 
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -15,7 +19,9 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.android.gms.tasks.CancellationTokenSource;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class LocationHelper {
 
@@ -24,41 +30,79 @@ public class LocationHelper {
     private Location currentLocation;
     private LocationListener listener;
     private LocationCallback locationCallback;
-    private static final String TAG = "LocationHelper";
-    private boolean isTracking = false;
-
-    // Последна испратена локација (за да избегнеме дупликати)
-    private Location lastNotifiedLocation;
-    private static final float MIN_DISTANCE_TO_NOTIFY = 50; // 50 метри
+    private DatabaseHelper dbHelper;
+    private HashMap<String, Boolean> previouslyNearby = new HashMap<>(); // За следење на влез/излез
+    private static final float NEARBY_DISTANCE = 100; // 100 метри
+    private static final String CHANNEL_ID = "nearby_companies_channel";
 
     public interface LocationListener {
         void onLocationReceived(double latitude, double longitude);
         void onLocationError(String error);
+        void onNearbyStatusChanged(); // За освежување на листата
     }
 
     public LocationHelper(Context context, LocationListener listener) {
         this.context = context;
         this.listener = listener;
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+        dbHelper = new DatabaseHelper(context);
+        createNotificationChannel();
     }
 
-    // Метод за постојано следење на локација (за real-time)
-    // Метод за постојано следење на локација (за real-time)
-    public void startLocationTracking() {
-        if (isTracking) return;
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Блиски фирми",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Известете ме кога сум во близина или се оддалечувам од фирма");
+            channel.enableVibration(true);
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
 
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+    private void sendNotification(String companyName, String address, boolean isEntering) {
+        String title, message;
+        if (isEntering) {
+            title = "📍 Влеговте во близина!";
+            message = "Фирмата " + companyName + " е на помалку од 100 метри од вас";
+        } else {
+            title = "🚶‍♂️ Се оддалечивте!";
+            message = "Се оддалечивте повеќе од 100 метри од " + companyName;
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_map)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify((int) System.currentTimeMillis(), builder.build());
+        }
+    }
+
+    public void startLocationTracking() {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             listener.onLocationError("Location permission not granted");
             return;
         }
 
-        // Креирај LocationRequest на компатибилен начин (работи со сите верзии)
-        LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(10000);          // ажурирај на секои 10 секунди
-        locationRequest.setFastestInterval(5000);    // најбрзо на 5 секунди
-        locationRequest.setSmallestDisplacement(MIN_DISTANCE_TO_NOTIFY); // 50 метри поместување
+        // LocationRequest за реално време следење
+        LocationRequest locationRequest = new LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                3000  // проверка на секои 3 секунди
+        )
+                .setMinUpdateIntervalMillis(1000)   // најбрзо на 1 секунда
+                .setMaxUpdateDelayMillis(5000)      // максимално одложување 5 секунди
+                .build();
 
         locationCallback = new LocationCallback() {
             @Override
@@ -67,112 +111,81 @@ public class LocationHelper {
                 for (Location location : locationResult.getLocations()) {
                     if (location != null) {
                         currentLocation = location;
-                        android.util.Log.d(TAG, "GPS Location: " + location.getLatitude() + ", " + location.getLongitude());
-                        if (shouldNotifyLocationChanged(location)) {
-                            lastNotifiedLocation = new Location(location);
-                            listener.onLocationReceived(location.getLatitude(), location.getLongitude());
-                        }
+                        System.out.println("📍 GPS: " + location.getLatitude() + ", " + location.getLongitude());
+                        listener.onLocationReceived(location.getLatitude(), location.getLongitude());
+                        checkNearbyCompanies(location);
                     }
                 }
             }
         };
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-        isTracking = true;
-        android.util.Log.d(TAG, "Started location tracking with min displacement " + MIN_DISTANCE_TO_NOTIFY + "m");
+        System.out.println("📍 Real-time location tracking started");
     }
 
-    // Проверува дали локацијата се сменила доволно за да известиме
-    private boolean shouldNotifyLocationChanged(Location newLocation) {
-        if (lastNotifiedLocation == null) return true;
-        float distance = lastNotifiedLocation.distanceTo(newLocation);
-        android.util.Log.d(TAG, "Distance since last notification: " + distance + "m");
-        return distance >= MIN_DISTANCE_TO_NOTIFY;
+    private void checkNearbyCompanies(Location location) {
+        ArrayList<Company> allCompanies = dbHelper.getAllCompanies();
+        boolean needsRefresh = false;
+
+        for (Company company : allCompanies) {
+            if (company.getLatitude() == 0 && company.getLongitude() == 0) continue;
+
+            float[] results = new float[1];
+            Location.distanceBetween(
+                    location.getLatitude(), location.getLongitude(),
+                    company.getLatitude(), company.getLongitude(),
+                    results
+            );
+            float distance = results[0];
+            String key = company.getId() + "_" + company.getName();
+            boolean isNowNearby = (distance <= NEARBY_DISTANCE);
+            Boolean wasNearby = previouslyNearby.get(key);
+
+            // ВЛЕЗ ВО БЛИЗИНА (беше подалеку, сега е близу)
+            if (isNowNearby && (wasNearby == null || !wasNearby)) {
+                System.out.println("✅ ENTER: " + company.getName() + " (" + distance + "m)");
+                sendNotification(company.getName(), company.getAddress(), true);
+                previouslyNearby.put(key, true);
+                needsRefresh = true;
+            }
+            // ИЗЛЕЗ ОД БЛИЗИНА (беше близу, сега е подалеку)
+            else if (!isNowNearby && wasNearby != null && wasNearby) {
+                System.out.println("❌ EXIT: " + company.getName() + " (" + distance + "m)");
+                sendNotification(company.getName(), company.getAddress(), false);
+                previouslyNearby.put(key, false);
+                needsRefresh = true;
+            }
+        }
+
+        // Освежи ја листата ако има промена
+        if (needsRefresh && listener != null) {
+            listener.onNearbyStatusChanged();
+        }
     }
 
-    // Стопирај следење (за да заштедиш батерија)
     public void stopLocationTracking() {
         if (locationCallback != null && fusedLocationClient != null) {
             fusedLocationClient.removeLocationUpdates(locationCallback);
-            isTracking = false;
-            android.util.Log.d(TAG, "Stopped location tracking");
+            System.out.println("📍 Location tracking stopped");
         }
     }
 
-    // Еднократно земање на локација
-    public void getCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            listener.onLocationError("Location permission not granted");
-            return;
-        }
-
-        android.util.Log.d(TAG, "Getting current location...");
-
-        CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-
-        fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                cancellationTokenSource.getToken()
-        ).addOnSuccessListener(location -> {
-            if (location != null) {
-                currentLocation = location;
-                android.util.Log.d(TAG, "Location received: " + location.getLatitude() + ", " + location.getLongitude());
-                listener.onLocationReceived(location.getLatitude(), location.getLongitude());
-            } else {
-                android.util.Log.e(TAG, "Location is null, trying last known location...");
-                getLastLocationAsFallback();
-            }
-        }).addOnFailureListener(e -> {
-            android.util.Log.e(TAG, "Failed to get current location: " + e.getMessage());
-            getLastLocationAsFallback();
-        });
-    }
-
-    private void getLastLocationAsFallback() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            listener.onLocationError("Location permission not granted");
-            return;
-        }
-
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(location -> {
-                    if (location != null) {
-                        currentLocation = location;
-                        android.util.Log.d(TAG, "Last location received: " + location.getLatitude() + ", " + location.getLongitude());
-                        listener.onLocationReceived(location.getLatitude(), location.getLongitude());
-                    } else {
-                        android.util.Log.e(TAG, "No location available");
-                        listener.onLocationError("Could not get location. Make sure GPS is enabled.");
-                    }
-                });
+    public void resetNearbyStates() {
+        previouslyNearby.clear();
     }
 
     public boolean isNearby(double businessLat, double businessLon) {
-        if (currentLocation == null) {
-            android.util.Log.d(TAG, "currentLocation is null");
-            return false;
-        }
-
+        if (currentLocation == null) return false;
         float[] results = new float[1];
         Location.distanceBetween(
                 currentLocation.getLatitude(), currentLocation.getLongitude(),
                 businessLat, businessLon,
                 results
         );
-
-        float distance = results[0];
-        android.util.Log.d(TAG, "Distance to business: " + distance + " meters");
-
-        return distance < 50; // 500 метри
+        return results[0] < NEARBY_DISTANCE;
     }
 
-    public Location getCurrentLocationObject() {
+    public Location getCurrentLocation() {
         return currentLocation;
-    }
-
-    public boolean isTracking() {
-        return isTracking;
     }
 }
