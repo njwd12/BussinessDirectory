@@ -1,89 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="horizontal"
-    android:padding="16dp"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
-    android:elevation="2dp"
-    android:layout_margin="4dp"
-    android:gravity="center_vertical">
-
-    <ImageView
-        android:id="@+id/companyLogo"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:scaleType="centerInside"
-        android:background="@drawable/circle_background"
-        android:padding="10dp"
-        android:layout_marginEnd="12dp"/>
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:cardUseCompatPadding="true">
 
     <LinearLayout
-        android:orientation="vertical"
-        android:layout_width="0dp"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1">
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/companyName"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:ellipsize="end"/>
-
-        <TextView
-            android:id="@+id/companyAddress"
-            android:textSize="14sp"
-            android:textColor="@color/gray"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:drawablePadding="4dp"/>
+        <ImageView
+            android:id="@+id/companyLogo"
+            android:layout_width="55dp"
+            android:layout_height="55dp"
+            android:scaleType="centerInside"
+            android:background="@drawable/circle_background"
+            android:padding="10dp"
+            android:layout_marginEnd="16dp" />
 
         <LinearLayout
-            android:orientation="horizontal"
-            android:layout_width="match_parent"
+            android:orientation="vertical"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp">
+            android:layout_weight="1">
 
             <TextView
-                android:id="@+id/companyPhone"
-                android:textSize="14sp"
-                android:textColor="@color/blue"
-                android:layout_width="0dp"
+                android:id="@+id/companyName"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorPrimaryDark"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:drawablePadding="4dp"
                 android:maxLines="1"
-                android:ellipsize="end"/>
+                android:ellipsize="end" />
 
             <TextView
-                android:id="@+id/companyWebsite"
-                android:textSize="14sp"
-                android:textColor="@color/blue"
-                android:layout_width="0dp"
+                android:id="@+id/companyAddress"
+                android:textSize="13sp"
+                android:textColor="#666666"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:drawablePadding="4dp"
                 android:maxLines="1"
-                android:ellipsize="end"/>
+                android:ellipsize="end"
+                android:drawablePadding="4dp"
+                android:drawableStart="@drawable/ic_location" />
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp">
+
+                <TextView
+                    android:id="@+id/companyPhone"
+                    android:textSize="12sp"
+                    android:textColor="#2196F3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:drawablePadding="4dp"
+                    android:drawableStart="@drawable/ic_phone"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/companyWebsite"
+                    android:textSize="12sp"
+                    android:textColor="#2196F3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:drawablePadding="4dp"
+                    android:drawableStart="@drawable/ic_web"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
         </LinearLayout>
+
+        <!-- Индикатор за близина -->
+        <ImageView
+            android:id="@+id/nearbyIndicator"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_nearby"
+            android:visibility="gone"
+            android:layout_marginStart="8dp"
+            app:tint="#4CAF50" />
 
     </LinearLayout>
 
-    <!-- Indikator za blizinata-->
-    <ImageView
-        android:id="@+id/nearbyIndicator"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:src="@drawable/ic_nearby"
-        android:visibility="gone"
-        android:layout_marginStart="8dp"
-        app:tint="#FF00FF00" />
-
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

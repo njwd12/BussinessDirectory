@@ -22,8 +22,10 @@ import com.google.android.gms.location.Priority;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import android.os.PowerManager;
 
 public class LocationHelper {
+    private PowerManager.WakeLock wakeLock;
 
     private Context context;
     private FusedLocationProviderClient fusedLocationClient;
@@ -47,6 +49,9 @@ public class LocationHelper {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
         dbHelper = new DatabaseHelper(context);
         createNotificationChannel();
+        // Иницијализација на WakeLock
+        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BusinessDirectory::LocationWakeLock");
     }
 
     private void createNotificationChannel() {
@@ -89,6 +94,10 @@ public class LocationHelper {
     }
 
     public void startLocationTracking() {
+        // Земи го WakeLock за да спречиш заспивање
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            wakeLock.acquire(10 * 60 * 1000L); // 10 минути
+        }
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             listener.onLocationError("Location permission not granted");
@@ -164,6 +173,10 @@ public class LocationHelper {
     }
 
     public void stopLocationTracking() {
+        // Ослободи го WakeLock кога не е потребен
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
         if (locationCallback != null && fusedLocationClient != null) {
             fusedLocationClient.removeLocationUpdates(locationCallback);
             System.out.println("📍 Location tracking stopped");

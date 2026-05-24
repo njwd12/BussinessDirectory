@@ -202,7 +202,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (currentLocationHelper != null) {
-            currentLocationHelper.startLocationTracking();
+            currentLocationHelper.stopLocationTracking(); // Запре го старото
+            currentLocationHelper.startLocationTracking(); // Стартувај ново
         }
     }
 
